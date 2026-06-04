@@ -7,7 +7,7 @@
 <body>
     <h1>Test PostMessage Application</h1>
     <div id="status" style="padding: 10px; background: white; border: 1px solid #ccc;">
-        메시지를 기다리는 중...
+        메시지를 기다리는 중....
     </div>
     <button onclick="sendToParent()" style="margin-top: 10px;">Test postMessage()</button>
     <script>
@@ -26,6 +26,7 @@
 
         // 2. 부모에게 메시지 전송
         function sendToParent() {
+console.log('check');
 console.log('self === parent', window === window.parent);
 console.log('self === top', window === window.top);
             window.parent.postMessage(
