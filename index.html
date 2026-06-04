@@ -29,6 +29,7 @@ console.log('thisOrigin',window.location.origin)
 
         // 2. 부모에게 메시지 전송
         function sendToParent() {
+console.log('현재창이 최상위야?',window===window.parent)
             window.parent.postMessage(
                 { type: 'HELLO', payload: 'postMessage test...' },
                 '*' // 테스트 시에는 '*' 사용, 운영 시에는 정확한 도메인
