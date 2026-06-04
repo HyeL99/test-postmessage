@@ -12,8 +12,10 @@
     <button onclick="sendToParent()" style="margin-top: 10px;">postMessage 전달하기(type: HELLO)</button>
     <script>
         // 1. 부모로부터 메시지 수신
-        window.addEventListener('message', (event) => {
+        window.addEventListener('message', (data) => {
             // 보안: 실제 운영 시에는 event.origin을 체크하세요.
+console.log('origin', event.origin)
+console.log('thisOrigin',window.location.origin)
             console.log('📩 받은 메시지:', event.data);
             const statusDiv = document.getElementById('status');
             
@@ -28,7 +30,7 @@
         // 2. 부모에게 메시지 전송
         function sendToParent() {
             window.parent.postMessage(
-                { type: 'GREETING', payload: '안녕하세요 부모님! Fiori입니다.' },
+                { type: 'HELLO', payload: 'postMessage test...' },
                 '*' // 테스트 시에는 '*' 사용, 운영 시에는 정확한 도메인
             );
         }
