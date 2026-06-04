@@ -9,18 +9,15 @@
     <div id="status" style="padding: 10px; background: white; border: 1px solid #ccc;">
         메시지를 기다리는 중...
     </div>
-    <button onclick="sendToParent()" style="margin-top: 10px;">postMessage 전달하기(type: HELLO)</button>
+    <button onclick="sendToParent()" style="margin-top: 10px;">Test postMessage()</button>
     <script>
         // 1. 부모로부터 메시지 수신
-        window.addEventListener('message', (data) => {
-            // 보안: 실제 운영 시에는 event.origin을 체크하세요.
-console.log('origin', event.origin)
-console.log('thisOrigin',window.location.origin)
-            console.log('📩 받은 메시지:', event.data);
+        window.addEventListener('message', (event) => {
+            if(['react-devtools-content-script', 'react-devtools-hook-settings-injector', 'react-devtools-hook-installer'].includes(event.data.source)) return;
             const statusDiv = document.getElementById('status');
             
             if (event.data.type === 'SET_AUTH') {
-                statusDiv.innerHTML = `<b>✅ 인증 완료!</b><br>Token: ${event.data.payload.accessToken}`;
+                statusDiv.innerHTML = `<b>✅ 인증 완료!</b><br>Token: ${event.data.payload.AMTOKEN}`;
                 statusDiv.style.background = '#e6fffa';
             } else {
                 statusDiv.innerText = `📩 메시지 수신: ${JSON.stringify(event.data)}`;
@@ -29,7 +26,6 @@ console.log('thisOrigin',window.location.origin)
 
         // 2. 부모에게 메시지 전송
         function sendToParent() {
-console.log('현재창이 최상위야?',window===window.parent)
             window.parent.postMessage(
                 { type: 'HELLO', payload: 'postMessage test...' },
                 '*' // 테스트 시에는 '*' 사용, 운영 시에는 정확한 도메인
