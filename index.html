@@ -26,6 +26,8 @@
 
         // 2. 부모에게 메시지 전송
         function sendToParent() {
+console.log('self === parent', window === window.parent);
+console.log('self === top', window === window.top);
             window.parent.postMessage(
                 { type: 'HELLO', payload: 'postMessage test...' },
                 '*' // 테스트 시에는 '*' 사용, 운영 시에는 정확한 도메인
