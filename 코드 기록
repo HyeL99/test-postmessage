@@ -68,119 +68,137 @@ const PostMessageSender = () => {
 export default PostMessageSender;
 
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, GridReadyEvent } from 'ag-grid-community';
+import { SelectionChangedEvent, ColDef } from 'ag-grid-community';
 
-// CSS 임포트 (v33 기준)
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-quartz.css'; // v31+ 추천 테마
-
-interface CommonGridProps {
-  rowData: any[];
-  columnDefs: ColDef[];
-  // 향후 여기에 커스텀 이벤트 props를 추가할 예정입니다.
-  // onMyCustomEvent?: (data: any) => void;
+// 1. 데이터 타입 정의 (예시를 위해 무게 컬럼 추가)
+interface RowData {
+  id: number;
+  productName: string;
+  price: number;
+  quantity: number;
+  weight: number;
 }
 
-export const CommonGrid: React.FC<CommonGridProps> = ({ rowData, columnDefs }) => {
-  const gridRef = useRef<AgGridReact>(null);
+// 2. 합계 계산이 가능한 숫자형 '대상 컬럼' 정보 목록
+const AVAILABLE_COLUMNS = [
+  { field: 'price', label: '단가(원)' },
+  { field: 'quantity', label: '수량(개)' },
+  { field: 'weight', label: '무게(kg)' },
+];
 
-  const onGridReady = (params: GridReadyEvent) => {
-    // 그리드 초기화 시 필요한 공통 로직
-    params.api.sizeColumnsToFit();
+export const CommonGrid: React.FC = () => {
+  const gridRef = useRef<AgGridReact>(null);
+  
+  // 🌟 State 1: 사용자가 외부에서 체크박스로 선택한 계산 대상 컬럼들 (초기값 지정 가능)
+  const [targetColumns, setTargetColumns] = useState<string[]>(['price', 'quantity']);
+  
+  // 🌟 State 2: 그리드에서 현재 체크박스로 선택된 행(Row) 데이터들
+  const [selectedRows, setSelectedRows] = useState<RowData[]>([]);
+
+  const rowData: RowData[] = useMemo(() => [
+    { id: 1, productName: '기계식 키보드', price: 150000, quantity: 2, weight: 1.2 },
+    { id: 2, productName: '무선 마우스', price: 80000, quantity: 5, weight: 0.3 },
+    { id: 3, productName: '모니터 암', price: 120000, quantity: 1, weight: 4.5 },
+  ], []);
+
+  const columnDefs: ColDef[] = useMemo(() => [
+    { 
+      field: 'id', 
+      headerName: 'ID', 
+      width: 100,
+      checkboxSelection: true,
+      headerCheckboxSelection: true 
+    },
+    { field: 'productName', headerName: '상품명', width: 150 },
+    { field: 'price', headerName: '단가(원)', width: 120 },
+    { field: 'quantity', headerName: '수량(개)', width: 120 },
+    { field: 'weight', headerName: '무게(kg)', width: 120 },
+  ], []);
+
+  // 그리드 내 행 선택이 바뀔 때마다 State 업데이트
+  const onSelectionChanged = useCallback((event: SelectionChangedEvent) => {
+    setSelectedRows(event.api.getSelectedRows() as RowData[]);
+  }, []);
+
+  // 외부 UI 체크박스 토글 핸들러
+  const handleColumnToggle = (field: string) => {
+    setTargetColumns((prev) => 
+      prev.includes(field) 
+        ? prev.filter((f) => f !== field) // 이미 있으면 제거
+        : [...prev, field]                // 없으면 추가
+    );
   };
 
-  return (
-    <div className="ag-theme-quartz" style={{ width: '100%', height: '500px' }}>
-      <AgGridReact
-        ref={gridRef}
-        rowData={rowData}
-        columnDefs={columnDefs}
-        onGridReady={onGridReady}
-      />
-    </div>
-  );
-};
+  // 🌟 핵심 로직: 선택된 행(selectedRows)이나 대상 컬럼(targetColumns)이 바뀔 때마다 합계 동적 재계산
+  const dynamicSums = useMemo(() => {
+    const totals: Record<string, number> = {};
+    
+    // 대상 컬럼들 초기화
+    targetColumns.forEach(col => totals[col] = 0);
 
+    // 선택된 행을 순회하며 동적으로 값 누적
+    selectedRows.forEach(row => {
+      targetColumns.forEach(col => {
+        // 객체의 key 값으로 동적 접근하여 더하기
+        totals[col] += (row[col as keyof RowData] as number) || 0;
+      });
+    });
 
-import React from 'react';
-import { CustomCellRendererProps } from 'ag-grid-react';
-
-export const CustomActionCell = (props: CustomCellRendererProps) => {
-  // 나중에 이 div나 button 요소에 onClick, onMouseOver 등 커스텀 이벤트를 달게 됩니다.
-  return (
-    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-      <span>{props.value}</span>
-      {/* 화면에 보여주기 위한 가짜 버튼/아이콘 */}
-      <button style={{ cursor: 'pointer' }}>Action</button>
-    </div>
-  );
-};
-
-import React, { useMemo } from 'react';
-import { CommonGrid } from './CommonGrid';
-import { CustomActionCell } from './CustomActionCell';
-import { ColDef } from 'ag-grid-community';
-
-export const UserPage = () => {
-  const rowData = [
-    { id: 1, name: '김개발', role: 'Frontend' },
-    { id: 2, name: '이설계', role: 'Backend' },
-  ];
-
-  const columnDefs = useMemo<ColDef[]>(() => [
-    { field: 'id', headerName: 'ID', width: 80 },
-    { field: 'role', headerName: '직무' },
-    { 
-      field: 'name', 
-      headerName: '이름 및 액션', 
-      cellRenderer: CustomActionCell // 2번에서 만든 UI를 셀에 렌더링
-    },
-  ], []);
+    return totals;
+  }, [selectedRows, targetColumns]);
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2>사용자 목록</h2>
-      <CommonGrid rowData={rowData} columnDefs={columnDefs} />
-    </div>
-  );
-};
+      
+      {/* 1. 외부 컬럼 선택 체크박스 영역 */}
+      <div style={{ marginBottom: '15px' }}>
+        <strong>계산할 컬럼 선택: </strong>
+        {AVAILABLE_COLUMNS.map((col) => (
+          <label key={col.field} style={{ marginLeft: '10px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={targetColumns.includes(col.field)}
+              onChange={() => handleColumnToggle(col.field)}
+            />
+            {col.label}
+          </label>
+        ))}
+      </div>
 
-
---------------
-import React, { useRef } from 'react';
-import { AgGridReact } from 'ag-grid-react';
-import { ColDef, GridReadyEvent } from 'ag-grid-community';
-
-// 🌟 나중에 추가될 엔터프라이즈 모듈 및 라이선스 매니저
-import 'ag-grid-enterprise';
-import { LicenseManager } from 'ag-grid-enterprise';
-
-// 🌟 발급받은 라이선스 키 등록 (여기서 한 번만 선언하면 프로젝트 전체에 적용됨)
-LicenseManager.setLicenseKey('YOUR_ENTERPRISE_LICENSE_KEY_HERE');
-
-interface CommonGridProps {
-  rowData: any[];
-  columnDefs: ColDef[];
-}
-
-export const CommonGrid: React.FC<CommonGridProps> = ({ rowData, columnDefs }) => {
-  const gridRef = useRef<AgGridReact>(null);
-
-  const onGridReady = (params: GridReadyEvent) => {
-    params.api.sizeColumnsToFit();
-  };
-
-  return (
-    <div className="ag-theme-quartz" style={{ width: '100%', height: '500px' }}>
-      <AgGridReact
-        ref={gridRef}
-        rowData={rowData}
-        columnDefs={columnDefs}
-        onGridReady={onGridReady}
-        // 엔터프라이즈 기능 props를 나중에 여기에 추가 (예: rowGroupPanelShow={'always'})
-      />
+      {/* 2. 동적으로 계산된 합계 표시 영역 */}
+      <div style={{ 
+        marginBottom: '15px', padding: '15px', 
+        backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px',
+        display: 'flex', gap: '30px', minHeight: '54px'
+      }}>
+        {targetColumns.length === 0 ? (
+          <span style={{ color: '#6c757d' }}>선택된 컬럼이 없습니다.</span>
+        ) : (
+          targetColumns.map(field => {
+            const label = AVAILABLE_COLUMNS.find(c => c.field === field)?.label;
+            return (
+              <div key={field} style={{ fontWeight: 'bold', color: '#333' }}>
+                총 선택 {label}: <span style={{ color: '#007bff' }}>
+                  {dynamicSums[field]?.toLocaleString() || 0}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+      
+      {/* 3. AgGrid 영역 */}
+      <div className="ag-theme-quartz" style={{ width: '100%', height: '400px' }}>
+        <AgGridReact
+          ref={gridRef}
+          rowData={rowData}
+          columnDefs={columnDefs}
+          rowSelection="multiple"
+          onSelectionChanged={onSelectionChanged}
+        />
+      </div>
     </div>
   );
 };
