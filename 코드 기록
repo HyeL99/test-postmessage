@@ -66,3 +66,127 @@ const PostMessageSender = () => {
 };
 
 export default PostMessageSender;
+
+
+import React, { useRef, useMemo } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, GridReadyEvent } from 'ag-grid-community';
+
+// CSS 임포트 (v33 기준)
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css'; // v31+ 추천 테마
+
+interface CommonGridProps {
+  rowData: any[];
+  columnDefs: ColDef[];
+  // 향후 여기에 커스텀 이벤트 props를 추가할 예정입니다.
+  // onMyCustomEvent?: (data: any) => void;
+}
+
+export const CommonGrid: React.FC<CommonGridProps> = ({ rowData, columnDefs }) => {
+  const gridRef = useRef<AgGridReact>(null);
+
+  const onGridReady = (params: GridReadyEvent) => {
+    // 그리드 초기화 시 필요한 공통 로직
+    params.api.sizeColumnsToFit();
+  };
+
+  return (
+    <div className="ag-theme-quartz" style={{ width: '100%', height: '500px' }}>
+      <AgGridReact
+        ref={gridRef}
+        rowData={rowData}
+        columnDefs={columnDefs}
+        onGridReady={onGridReady}
+      />
+    </div>
+  );
+};
+
+
+import React from 'react';
+import { CustomCellRendererProps } from 'ag-grid-react';
+
+export const CustomActionCell = (props: CustomCellRendererProps) => {
+  // 나중에 이 div나 button 요소에 onClick, onMouseOver 등 커스텀 이벤트를 달게 됩니다.
+  return (
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <span>{props.value}</span>
+      {/* 화면에 보여주기 위한 가짜 버튼/아이콘 */}
+      <button style={{ cursor: 'pointer' }}>Action</button>
+    </div>
+  );
+};
+
+import React, { useMemo } from 'react';
+import { CommonGrid } from './CommonGrid';
+import { CustomActionCell } from './CustomActionCell';
+import { ColDef } from 'ag-grid-community';
+
+export const UserPage = () => {
+  const rowData = [
+    { id: 1, name: '김개발', role: 'Frontend' },
+    { id: 2, name: '이설계', role: 'Backend' },
+  ];
+
+  const columnDefs = useMemo<ColDef[]>(() => [
+    { field: 'id', headerName: 'ID', width: 80 },
+    { field: 'role', headerName: '직무' },
+    { 
+      field: 'name', 
+      headerName: '이름 및 액션', 
+      cellRenderer: CustomActionCell // 2번에서 만든 UI를 셀에 렌더링
+    },
+  ], []);
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <h2>사용자 목록</h2>
+      <CommonGrid rowData={rowData} columnDefs={columnDefs} />
+    </div>
+  );
+};
+
+
+--------------
+import React, { useRef } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, GridReadyEvent } from 'ag-grid-community';
+
+// 🌟 나중에 추가될 엔터프라이즈 모듈 및 라이선스 매니저
+import 'ag-grid-enterprise';
+import { LicenseManager } from 'ag-grid-enterprise';
+
+// 🌟 발급받은 라이선스 키 등록 (여기서 한 번만 선언하면 프로젝트 전체에 적용됨)
+LicenseManager.setLicenseKey('YOUR_ENTERPRISE_LICENSE_KEY_HERE');
+
+interface CommonGridProps {
+  rowData: any[];
+  columnDefs: ColDef[];
+}
+
+export const CommonGrid: React.FC<CommonGridProps> = ({ rowData, columnDefs }) => {
+  const gridRef = useRef<AgGridReact>(null);
+
+  const onGridReady = (params: GridReadyEvent) => {
+    params.api.sizeColumnsToFit();
+  };
+
+  return (
+    <div className="ag-theme-quartz" style={{ width: '100%', height: '500px' }}>
+      <AgGridReact
+        ref={gridRef}
+        rowData={rowData}
+        columnDefs={columnDefs}
+        onGridReady={onGridReady}
+        // 엔터프라이즈 기능 props를 나중에 여기에 추가 (예: rowGroupPanelShow={'always'})
+      />
+    </div>
+  );
+};
+
+
+
+
+
+
