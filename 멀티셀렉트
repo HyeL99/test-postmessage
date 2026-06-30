@@ -1,0 +1,278 @@
+import React, { useState, useCallback, useMemo } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, SelectionChangedEvent } from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css'; // 최신 v31+ 권장 테마
+
+// 1. 데이터 타입 정의
+interface IRowData {
+  id: number;
+  product: string;
+  price: number; // 합산을 진행할 대상 컬럼
+}
+
+const AgGridSumPopup = () => {
+  // 팝업에 표시할 상태값
+  const [sumAmount, setSumAmount] = useState<number>(0);
+  const [isPopupVisible, setIsPopupVisible] = useState<boolean>(false);
+
+  // 더미 데이터
+  const rowData: IRowData[] = useMemo(() => [
+    { id: 1, product: '키보드', price: 150000 },
+    { id: 2, product: '마우스', price: 80000 },
+    { id: 3, product: '모니터', price: 450000 },
+    { id: 4, product: '헤드셋', price: 120000 },
+  ], []);
+
+  // 컬럼 정의 (첫 번째 컬럼에 체크박스 추가)
+  const columnDefs: ColDef<IRowData>[] = useMemo(() => [
+    { field: 'product', headerName: '상품명', checkboxSelection: true, headerCheckboxSelection: true },
+    { field: 'price', headerName: '가격', valueFormatter: (p) => `${p.value.toLocaleString()} 원` },
+  ], []);
+
+  // 2. 선택 변경 이벤트 핸들러
+  const onSelectionChanged = useCallback((event: SelectionChangedEvent<IRowData>) => {
+    // 선택된 전체 행 데이터 가져오기
+    const selectedRows = event.api.getSelectedRows();
+
+    if (selectedRows.length > 0) {
+      // 선택된 행들의 price 합산 계산
+      const total = selectedRows.reduce((acc, row) => acc + (row.price || 0), 0);
+      setSumAmount(total);
+      setIsPopupVisible(true);
+    } else {
+      setIsPopupVisible(false);
+      setSumAmount(0);
+    }
+  }, []);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '500px' }}>
+      <div className="ag-theme-quartz" style={{ height: '100%', width: '100%' }}>
+        <AgGridReact<IRowData>
+          rowData={rowData}
+          columnDefs={columnDefs}
+          // ag-grid v32+ 부터는 객체 형태의 rowSelection 권장
+          rowSelection={{ mode: 'multiRow' }} 
+          onSelectionChanged={onSelectionChanged}
+        />
+      </div>
+
+      {/* 3. 합계 표시 팝업 (플로팅 UI) */}
+      {isPopupVisible && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          backgroundColor: '#282c34',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span>선택된 항목 합계:</span>
+          <strong style={{ fontSize: '1.2em' }}>{sumAmount.toLocaleString()} 원</strong>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AgGridSumPopup;
+--------------------------------
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, SelectionChangedEvent, CellClickedEvent } from 'ag-grid-community';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-quartz.css';
+
+// 1. 데이터 타입 정의 (인덱스 시그니처 추가하여 동적 접근 허용)
+interface IRowData {
+  id: number;
+  product: string;
+  price: number;
+  stock: number; // 합산 테스트용 두 번째 숫자 컬럼
+  [key: string]: any; 
+}
+
+const DynamicAgGridSumPopup = () => {
+  // 상태 관리
+  const [selectedRows, setSelectedRows] = useState<IRowData[]>([]);
+  const [activeCol, setActiveCol] = useState<{ id: string; name: string } | null>(null);
+  const [sumAmount, setSumAmount] = useState<number>(0);
+  const [isPopupVisible, setIsPopupVisible] = useState<boolean>(false);
+
+  // 더미 데이터
+  const rowData: IRowData[] = useMemo(() => [
+    { id: 1, product: '키보드', price: 150000, stock: 45 },
+    { id: 2, product: '마우스', price: 80000, stock: 120 },
+    { id: 3, product: '모니터', price: 450000, stock: 15 },
+    { id: 4, product: '헤드셋', price: 120000, stock: 30 },
+  ], []);
+
+  // 컬럼 정의
+  const columnDefs: ColDef<IRowData>[] = useMemo(() => [
+    { field: 'product', headerName: '상품명', checkboxSelection: true, headerCheckboxSelection: true },
+    { field: 'price', headerName: '가격', valueFormatter: (p) => `${p.value?.toLocaleString()} 원` },
+    { field: 'stock', headerName: '재고수량', valueFormatter: (p) => `${p.value?.toLocaleString()} 개` },
+  ], []);
+
+  // 2. 셀 클릭 이벤트: 유저가 클릭한 컬럼 추적
+  const onCellClicked = useCallback((event: CellClickedEvent<IRowData>) => {
+    setActiveCol({
+      id: event.column.getColId(),
+      name: event.column.getColDef().headerName || event.column.getColId(),
+    });
+  }, []);
+
+  // 3. 선택 변경 이벤트: 선택된 행 데이터 업데이트
+  const onSelectionChanged = useCallback((event: SelectionChangedEvent<IRowData>) => {
+    setSelectedRows(event.api.getSelectedRows());
+  }, []);
+
+  // 4. 합계 계산 로직 (선택 행 또는 타겟 컬럼이 바뀔 때마다 실행)
+  useEffect(() => {
+    if (selectedRows.length > 0 && activeCol) {
+      // 선택된 행 중, 해당 컬럼의 값이 숫자인 데이터만 추출하여 합산
+      let hasNumericValue = false;
+      
+      const total = selectedRows.reduce((acc, row) => {
+        const val = row[activeCol.id];
+        if (typeof val === 'number') {
+          hasNumericValue = true;
+          return acc + val;
+        }
+        return acc;
+      }, 0);
+
+      // 숫자 데이터가 있는 컬럼일 때만 팝업 노출
+      if (hasNumericValue) {
+        setSumAmount(total);
+        setIsPopupVisible(true);
+      } else {
+        setIsPopupVisible(false);
+      }
+    } else {
+      setIsPopupVisible(false);
+      setSumAmount(0);
+    }
+  }, [selectedRows, activeCol]);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '500px' }}>
+      <div className="ag-theme-quartz" style={{ height: '100%', width: '100%' }}>
+        <AgGridReact<IRowData>
+          rowData={rowData}
+          columnDefs={columnDefs}
+          rowSelection={{ mode: 'multiRow' }}
+          onSelectionChanged={onSelectionChanged}
+          onCellClicked={onCellClicked}
+        />
+      </div>
+
+      {/* 팝업 UI */}
+      {isPopupVisible && activeCol && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          backgroundColor: '#282c34',
+          color: 'white',
+          padding: '16px 24px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span>선택된 <strong>[{activeCol.name}]</strong> 합계:</span>
+          <strong style={{ fontSize: '1.2em', color: '#61dafb' }}>
+            {sumAmount.toLocaleString()}
+          </strong>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DynamicAgGridSumPopup;
+---------------------------
+/* 팝업 기본 상태 (숨김 처리) */
+/* 공통 팝업 스타일 */
+.ag-sum-popup {
+  background-color: #1e1e2f;
+  color: #ffffff;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 1000;
+  
+  /* 마우스 이벤트 통과 (필수) */
+  pointer-events: none; 
+  
+  /* 애니메이션 설정 */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+}
+
+/* 옵션 A: 그리드 내부 우측 하단 (기획안 1안용) */
+.ag-sum-popup.type-absolute {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+}
+
+/* 옵션 B: 브라우저 전체 우측 하단 (기획안 2안용) */
+.ag-sum-popup.type-fixed {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+}
+
+/* 팝업 활성화 상태 */
+.ag-sum-popup.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+----
+
+return (
+  {/* 부모 컨테이너 기준점 설정 (매우 중요) */}
+  <div style={{ position: 'relative', width: '100%', height: '500px' }}>
+    
+    {/* Ag-Grid 영역 */}
+    <div className="ag-theme-quartz" style={{ height: '100%', width: '100%' }}>
+      <AgGridReact<IRowData>
+        // ... (이전의 rowData, columnDefs, 이벤트들) ...
+      />
+    </div>
+
+    {/* 플로팅 합계 팝업 UI */}
+    <div className={`ag-sum-popup ${isPopupVisible && activeCol ? 'visible' : ''}`}>
+      <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right' }}>
+        <span style={{ fontSize: '12px', color: '#a0a0b0', marginBottom: '4px' }}>
+          선택된 <strong>{activeCol?.name}</strong> 합계
+        </span>
+        <strong style={{ fontSize: '22px', fontWeight: 600, color: '#4facfe', letterSpacing: '0.5px' }}>
+          {sumAmount.toLocaleString()}
+        </strong>
+      </div>
+    </div>
+    
+  </div>
+);
+
+----
+
