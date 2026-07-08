@@ -1,0 +1,130 @@
+import React, { useMemo, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, StatusPanelDef } from 'ag-grid-community';
+import 'ag-grid-enterprise'; // Enterprise 기능 활성화
+
+const GridWithStatusBar = () => {
+  const [rowData] = useState([
+    { product: '사과', price: 1000, quantity: 5 },
+    { product: '바나나', price: 2000, quantity: 3 },
+    { product: '오렌지', price: 1500, quantity: 10 },
+  ]);
+
+  const [columnDefs] = useState<ColDef[]>([
+    { field: 'product', headerName: '상품명' },
+    { field: 'price', headerName: '가격' },
+    { field: 'quantity', headerName: '수량' },
+  ]);
+
+  // 하단 상태 표시줄 설정
+  const statusBar = useMemo<{ statusPanels: StatusPanelDef[] }>(() => {
+    return {
+      statusPanels: [
+        {
+          statusPanel: 'agAggregationComponent', // 드래그 영역의 합계, 평균, 최소/최대값 자동 계산
+          align: 'right',
+        },
+      ],
+    };
+  }, []);
+
+  return (
+    <div className="ag-theme-quartz" style={{ height: 400, width: '100%' }}>
+      <AgGridReact
+        rowData={rowData}
+        columnDefs={columnDefs}
+        enableRangeSelection={true} // 드래그 범위 선택 활성화 (필수)
+        statusBar={statusBar}       // 상태 표시줄 적용
+      />
+    </div>
+  );
+};
+
+export default GridWithStatusBar;
+
+
+
+---------------------------
+import React, { useCallback, useRef, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, RangeSelectionChangedEvent } from 'ag-grid-community';
+import 'ag-grid-enterprise';
+
+const CustomSumGrid = () => {
+  const gridRef = useRef<AgGridReact>(null);
+  const [selectedSum, setSelectedSum] = useState<number>(0);
+
+  const [rowData] = useState([
+    { product: '사과', price: 1000, quantity: 5 },
+    { product: '바나나', price: 2000, quantity: 3 },
+    { product: '오렌지', price: 1500, quantity: 10 },
+  ]);
+
+  const [columnDefs] = useState<ColDef[]>([
+    { field: 'product', headerName: '상품명' },
+    { field: 'price', headerName: '가격' },
+    { field: 'quantity', headerName: '수량' },
+  ]);
+
+  // 드래그 영역 변경 시 호출되는 이벤트 핸들러
+  const onRangeSelectionChanged = useCallback((event: RangeSelectionChangedEvent) => {
+    const api = event.api;
+    const cellRanges = api.getCellRanges();
+    let currentSum = 0;
+
+    if (!cellRanges || cellRanges.length === 0) {
+      setSelectedSum(0);
+      return;
+    }
+
+    cellRanges.forEach((range) => {
+      // 드래그한 시작 행과 끝 행의 인덱스를 구함
+      const startRow = Math.min(range.startRow!.rowIndex, range.endRow!.rowIndex);
+      const endRow = Math.max(range.startRow!.rowIndex, range.endRow!.rowIndex);
+
+      // 선택된 행을 순회
+      for (let rowIndex = startRow; rowIndex <= endRow; rowIndex++) {
+        const rowNode = api.getDisplayedRowAtIndex(rowIndex);
+        
+        if (rowNode) {
+          // 선택된 열을 순회
+          range.columns.forEach((column) => {
+            const value = api.getCellValue({
+              rowNode: rowNode,
+              colKey: column.getColId(),
+            });
+
+            // 값이 숫자형이거나 숫자로 변환 가능한 경우 합산
+            if (typeof value === 'number') {
+              currentSum += value;
+            } else if (value && !isNaN(Number(value))) {
+              currentSum += Number(value);
+            }
+          });
+        }
+      }
+    });
+
+    setSelectedSum(currentSum);
+  }, []);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ fontWeight: 'bold', fontSize: '18px' }}>
+        선택된 영역 합계: {selectedSum.toLocaleString()}
+      </div>
+      
+      <div className="ag-theme-quartz" style={{ height: 400, width: '100%' }}>
+        <AgGridReact
+          ref={gridRef}
+          rowData={rowData}
+          columnDefs={columnDefs}
+          enableRangeSelection={true} // 드래그 범위 선택 활성화
+          onRangeSelectionChanged={onRangeSelectionChanged} // 이벤트 연결
+        />
+      </div>
+    </div>
+  );
+};
+
+export default CustomSumGrid;
