@@ -1,0 +1,104 @@
+// TableControls 컴포넌트 내부
+// 예: const { subSumPosition = 'bottom', defaultGrouping = false } = props;
+const targetGroupCols = ['C1', 'C2']; 
+
+function onAction(type: string) {
+  switch (type) {
+    // -----------------------------------------------------------------
+    // 1. 소계 (부분합) 토글 액션
+    // -----------------------------------------------------------------
+    case "TOGGLE_SUB_SUM": { // 💡 중괄호 블록 스코프로 변수 충돌 방지
+      const isGrandTotalVisible = gridApi.getGridOption('grandTotalRow') === 'bottom';
+      let nextSubState: 'bottom' | undefined = undefined;
+      let shouldKeepSum = false;
+      let isTurningOn = false;
+
+      // [분기 파악] 상태 계산 로직 (아직 옵션을 적용하지 않음!)
+      if (subSumPosition === 'bottom') {
+        const isSubSumVisible = gridApi.getGridOption('groupTotalRow') === 'bottom';
+        nextSubState = isSubSumVisible ? undefined : 'bottom';
+        isTurningOn = (nextSubState === 'bottom');
+        shouldKeepSum = isTurningOn || isGrandTotalVisible;
+      } 
+      else if (subSumPosition === 'top') {
+        const currentCols = gridApi.getColumnState();
+        const isTopSubSumActive = currentCols.some(col => 
+          col.aggFunc === 'sum' && !gridApi.getColumn(col.colId)?.isRowGroupActive()
+        );
+        isTurningOn = !isTopSubSumActive;
+        shouldKeepSum = isTurningOn || isGrandTotalVisible;
+      }
+
+      // ✅ 1. [핵심] 컬럼의 상태(그룹핑, 연산)를 먼저 업데이트하여 데이터 엔진을 준비시킵니다!
+      const allColumns = gridApi.getColumns();
+      if (allColumns) {
+        const dynamicColStates = allColumns.map(col => {
+          const colId = col.getColId();
+          const isTargetCol = targetGroupCols.includes(colId);
+
+          if (!defaultGrouping && isTargetCol) {
+            return {
+              colId: colId,
+              rowGroup: isTurningOn,
+              hide: isTurningOn,
+              aggFunc: null
+            };
+          } else {
+            const isGroupCol = defaultGrouping ? col.isRowGroupActive() : (isTargetCol && isTurningOn);
+            return {
+              colId: colId,
+              aggFunc: isGroupCol ? null : (shouldKeepSum ? 'sum' : null)
+            };
+          }
+        });
+        gridApi.applyColumnState({ state: dynamicColStates });
+      }
+
+      // ✅ 2. [핵심] 데이터 엔진이 준비된 후, UI 렌더링 옵션을 켭니다!
+      if (subSumPosition === 'bottom') {
+        gridApi.setGridOption('groupTotalRow', nextSubState);
+      } else if (subSumPosition === 'top') {
+        gridApi.setGridOption('groupTotalRow', undefined); // 상단 모드일 경우 하단 렌더링 끄기
+      }
+      break;
+    }
+
+    // -----------------------------------------------------------------
+    // 2. 총합계 토글 액션
+    // -----------------------------------------------------------------
+    case "TOGGLE_SUM": { 
+      const isSumVisible = gridApi.getGridOption('grandTotalRow') === 'bottom';
+      const nextSumState = isSumVisible ? undefined : 'bottom';
+      const isTurningOnGrand = (nextSumState === 'bottom');
+
+      // 소계가 현재 켜져있는지 확인 (상단/하단 모두 커버하여 교차 검증)
+      const isSubBottomVisible = gridApi.getGridOption('groupTotalRow') === 'bottom';
+      const isSubTopVisible = gridApi.getColumnState().some(col => 
+          col.aggFunc === 'sum' && !gridApi.getColumn(col.colId)?.isRowGroupActive()
+      );
+      const isSubCurrentlyVisible = isSubBottomVisible || isSubTopVisible;
+
+      // 둘 중 하나라도 켜져있다면 연산 유지
+      const shouldKeepSumGrand = isTurningOnGrand || isSubCurrentlyVisible;
+
+      // ✅ 1. 컬럼 상태(연산) 먼저 적용
+      const grandAllColumns = gridApi.getColumns();
+      if (grandAllColumns) {
+        const grandColStates = grandAllColumns.map(col => {
+          return {
+            colId: col.getColId(),
+            // 현재 그룹 기준으로 쓰이고 있는 컬럼이면 연산(sum) 배제, 아니면 적용
+            aggFunc: col.isRowGroupActive() ? null : (shouldKeepSumGrand ? 'sum' : null)
+          };
+        });
+        gridApi.applyColumnState({ state: grandColStates });
+      }
+
+      // ✅ 2. 총합계 렌더링 옵션 나중에 적용
+      gridApi.setGridOption('grandTotalRow', nextSumState);
+      break;
+    }
+
+    // ... 기존 EXPAND_ALL, COLLAPSE_ALL 유지
+  }
+}
