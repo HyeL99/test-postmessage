@@ -1,0 +1,172 @@
+const conditionToText = (
+  condition: ParsedFilterCondition
+): string => {
+  const value = condition.value ?? '';
+  const valueTo = condition.valueTo ?? '';
+
+  switch (condition.operator) {
+    case 'contains':
+      return `*${value}*`;
+
+    case 'notContains':
+      return `!(*${value}*)`;
+
+    case 'equals':
+      return `=${value}`;
+
+    case 'notEqual':
+      return `!(=${value})`;
+
+    case 'inRange':
+      return `${value}...${valueTo}`;
+
+    case 'notInRange':
+      return `!(${value}...${valueTo})`;
+
+    case 'startsWith':
+      return `${value}*`;
+
+    case 'notStartsWith':
+      return `!(${value}*)`;
+
+    case 'endsWith':
+      return `*${value}`;
+
+    case 'notEndsWith':
+      return `!(*${value})`;
+
+    case 'lessThan':
+      return `<${value}`;
+
+    case 'notLessThan':
+      return `!(<${value})`;
+
+    case 'lessThanOrEqual':
+      return `<=${value}`;
+
+    case 'notLessThanOrEqual':
+      return `!(<=${value})`;
+
+    case 'greaterThan':
+      return `>${value}`;
+
+    case 'notGreaterThan':
+      return `!(>${value})`;
+
+    case 'greaterThanOrEqual':
+      return `>=${value}`;
+
+    case 'notGreaterThanOrEqual':
+      return `!(>=${value})`;
+
+    case 'blank':
+      return '<비어 있음>';
+
+    case 'notBlank':
+      return '!(<비어 있음>)';
+
+    default:
+      return '';
+  }
+};
+------------------------
+const conditionsToText = (
+  conditions: ParsedFilterCondition[]
+): string => {
+  return conditions
+    .map(conditionToText)
+    .filter(Boolean)
+    .join(', ');
+};
+------------------------
+const makeModalFilterValues = () => {
+  if (!gridApi) return {};
+
+  const filterModel =
+    gridApi.getFilterModel();
+
+  const result: Record<string, string> = {};
+
+  Object.entries(filterModel).forEach(
+    ([colId, model]) => {
+      const fioriModel =
+        model as FioriFilterModel;
+
+      if (!fioriModel?.conditions?.length) {
+        return;
+      }
+
+      result[colId] =
+        conditionsToText(
+          fioriModel.conditions
+        );
+    }
+  );
+
+  return result;
+};
+
+------------
+const makeModalFilterValues = () => {
+  if (!gridApi) return {};
+
+  const filterModel =
+    gridApi.getFilterModel();
+
+  const columns =
+    gridApi.getColumns() ?? [];
+
+  const result: Record<string, string> = {};
+
+  Object.entries(filterModel).forEach(
+    ([colId, model]) => {
+      const column = columns.find(
+        (col) => col.getColId() === colId
+      );
+
+      if (!column) return;
+
+      const headerName =
+        column.getColDef().headerName;
+
+      if (!headerName) return;
+
+      const fioriModel =
+        model as FioriFilterModel;
+
+      if (!fioriModel?.conditions?.length) {
+        return;
+      }
+
+      result[headerName] =
+        conditionsToText(
+          fioriModel.conditions
+        );
+    }
+  );
+
+  return result;
+};
+---------------------------
+const makeModalFilterValues = () => {
+  const result: Record<string, string> = {};
+
+  Object.entries(
+    filterConditionMap
+  ).forEach(
+    ([headerName, conditions]) => {
+      result[headerName] =
+        conditionsToText(conditions);
+    }
+  );
+
+  return result;
+};
+--------------------
+const handleOpenFilterModal = () => {
+  setFilterValues(
+    makeModalFilterValues()
+  );
+
+  setIsFilterModalOpen(true);
+};
