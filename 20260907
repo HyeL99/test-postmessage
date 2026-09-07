@@ -1,0 +1,108 @@
+const toAgGridCondition = (
+  condition: ParsedFilterCondition,
+  filterType: 'text' | 'number'
+) => {
+  const value = condition.value;
+  const valueTo = condition.valueTo;
+
+  switch (condition.operator) {
+    case 'contains':
+      return {
+        filterType: 'text',
+        type: 'contains',
+        filter: value,
+      };
+
+    case 'notContains':
+      return {
+        filterType: 'text',
+        type: 'notContains',
+        filter: value,
+      };
+
+    case 'startsWith':
+      return {
+        filterType: 'text',
+        type: 'startsWith',
+        filter: value,
+      };
+
+    case 'endsWith':
+      return {
+        filterType: 'text',
+        type: 'endsWith',
+        filter: value,
+      };
+
+    case 'equals':
+      return {
+        filterType,
+        type: 'equals',
+        filter:
+          filterType === 'number'
+            ? Number(value)
+            : value,
+      };
+
+    case 'notEqual':
+      return {
+        filterType,
+        type: 'notEqual',
+        filter:
+          filterType === 'number'
+            ? Number(value)
+            : value,
+      };
+
+    case 'greaterThan':
+      return {
+        filterType: 'number',
+        type: 'greaterThan',
+        filter: Number(value),
+      };
+
+    case 'greaterThanOrEqual':
+      return {
+        filterType: 'number',
+        type: 'greaterThanOrEqual',
+        filter: Number(value),
+      };
+
+    case 'lessThan':
+      return {
+        filterType: 'number',
+        type: 'lessThan',
+        filter: Number(value),
+      };
+
+    case 'lessThanOrEqual':
+      return {
+        filterType: 'number',
+        type: 'lessThanOrEqual',
+        filter: Number(value),
+      };
+
+    case 'inRange':
+      return {
+        filterType: 'number',
+        type: 'inRange',
+        filter: Number(value),
+        filterTo: Number(valueTo),
+      };
+
+    case 'blank':
+      return {
+        filterType,
+        type: 'blank',
+      };
+
+    case 'notBlank':
+      return {
+        filterType,
+        type: 'notBlank',
+      };
+
+    default:
+      return null;
+  }
+};
