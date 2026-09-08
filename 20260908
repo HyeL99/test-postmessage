@@ -1,0 +1,163 @@
+const notStartsWithOption = {
+  displayKey: 'notStartsWith',
+  displayName: '제외할 시작문자',
+  predicate: (
+    [filterValue]: string[],
+    cellValue: string | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !String(cellValue).startsWith(
+      String(filterValue)
+    );
+  },
+  numberOfInputs: 1 as const,
+};
+
+const notEndsWithOption = {
+  displayKey: 'notEndsWith',
+  displayName: '제외할 끝문자',
+  predicate: (
+    [filterValue]: string[],
+    cellValue: string | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !String(cellValue).endsWith(
+      String(filterValue)
+    );
+  },
+  numberOfInputs: 1 as const,
+};
+
+const notInRangeOption = {
+  displayKey: 'notInRange',
+  displayName: '사이에 없음',
+  predicate: (
+    [from, to]: number[],
+    cellValue: number | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !(
+      cellValue >= from &&
+      cellValue <= to
+    );
+  },
+  numberOfInputs: 2 as const,
+};
+
+const notLessThanOption = {
+  displayKey: 'notLessThan',
+  displayName: '보다 작지 않음',
+  predicate: (
+    [filterValue]: number[],
+    cellValue: number | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !(cellValue < filterValue);
+  },
+  numberOfInputs: 1 as const,
+};
+
+const notGreaterThanOption = {
+  displayKey: 'notGreaterThan',
+  displayName: '보다 크지 않음',
+  predicate: (
+    [filterValue]: number[],
+    cellValue: number | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !(cellValue > filterValue);
+  },
+  numberOfInputs: 1 as const,
+};
+
+const notLessThanOrEqualOption = {
+  displayKey: 'notLessThanOrEqual',
+  displayName: '보다 작거나 같지 않음',
+  predicate: (
+    [filterValue]: number[],
+    cellValue: number | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !(cellValue <= filterValue);
+  },
+  numberOfInputs: 1 as const,
+};
+
+const notGreaterThanOrEqualOption = {
+  displayKey: 'notGreaterThanOrEqual',
+  displayName: '보다 크거나 같지 않음',
+  predicate: (
+    [filterValue]: number[],
+    cellValue: number | null
+  ) => {
+    if (cellValue == null) return true;
+
+    return !(cellValue >= filterValue);
+  },
+  numberOfInputs: 1 as const,
+};
+
+==============
+const textFilterOptions = [
+  'contains',
+  'notContains',
+  'equals',
+  'notEqual',
+  'startsWith',
+  notStartsWithOption,
+  'endsWith',
+  notEndsWithOption,
+  'blank',
+  'notBlank',
+];
+
+const numberFilterOptions = [
+  'equals',
+  'notEqual',
+  'greaterThan',
+  notGreaterThanOption,
+  'greaterThanOrEqual',
+  notGreaterThanOrEqualOption,
+  'lessThan',
+  notLessThanOption,
+  'lessThanOrEqual',
+  notLessThanOrEqualOption,
+  'inRange',
+  notInRangeOption,
+  'blank',
+  'notBlank',
+];
+=========================
+return {
+  ...def,
+
+  filter:
+    filterType === 'number'
+      ? 'agNumberColumnFilter'
+      : 'agTextColumnFilter',
+
+  filterParams: {
+    ...def.filterParams,
+
+    filterOptions:
+      filterType === 'number'
+        ? numberFilterOptions
+        : textFilterOptions,
+
+    maxNumConditions: 10,
+  },
+};
+=============================
+'Does not start with'
+'Does not end with'
+'Not in range'
+'Not less than'
+'Not greater than'
+'Not less than or equal to'
+'Not greater than or equal to'
