@@ -1,93 +1,248 @@
-const filterModelsToApply: {
-  colId: string;
-  model: any;
-}[] = [];
+const handleApplyFilter = async (
+  values: Record<string, string>
+) => {
+  if (!gridApi) return;
 
-(gridApi.getColumns() ?? []).forEach((column) => {
-  const headerName =
-    column.getColDef().headerName ?? '';
+  /**
+   * 1. 모달 문자열 → ParsedFilterCondition[]
+   */
+  const nextFilterConditionMap: Record<
+    string,
+    ParsedFilterCondition[]
+  > = {};
 
-  const conditions =
-    nextFilterConditionMap[headerName];
+  Object.entries(values).forEach(
+    ([headerName, filterText]) => {
+      const conditions =
+        parseFilterValue(filterText);
 
-  const colId = column.getColId();
+      if (conditions.length > 0) {
+        nextFilterConditionMap[headerName] =
+          conditions;
+      }
+    }
+  );
 
-  if (!conditions?.length) {
-    filterModelsToApply.push({
-      colId,
-      model: null,
-    });
+  /**
+   * 2. columnDefs 먼저 갱신
+   *
+   * 조건 있음  → commonGridMultiFilter
+   * 조건 없음  → false
+   */
+  const updatedColumnDefs = columnDefs.map(
+    (def: any) => {
+      const headerName =
+        def.headerName ?? '';
 
-    return;
-  }
+      const hasFilter =
+        !!nextFilterConditionMap[
+          headerName
+        ]?.length;
 
-  const filterType =
-    column.getColDef().filterParams?.filterType === 'number'
-      ? 'number'
-      : 'text';
+      return {
+        ...def,
 
-  const positiveConditions =
-    conditions.filter(
-      (condition) =>
-        !condition.operator.startsWith('not')
-    );
+        filter: hasFilter
+          ? 'commonGridMultiFilter'
+          : false,
 
-  const negativeConditions =
-    conditions.filter(
-      (condition) =>
-        condition.operator.startsWith('not')
-    );
+        // 기존 filterParams는 유지
+        filterParams: {
+          ...def.filterParams,
+        },
+      };
+    }
+  );
 
-  const positiveAgConditions =
-    positiveConditions
-      .map((condition) =>
-        toAgGridCondition(
-          condition,
-          filterType
+  gridApi.setGridOption(
+    'columnDefs',
+    updatedColumnDefs
+  );
+
+  /**
+   * 3. 실제 적용할 Multi Filter Model들을 만든다.
+   *
+   * 아직 setColumnFilterModel() 호출하지 않음.
+   */
+  const modelsToApply: {
+    colId: string;
+    model: any;
+  }[] = [];
+
+  (gridApi.getColumns() ?? []).forEach(
+    (column) => {
+      const colDef =
+        column.getColDef();
+
+      const headerName =
+        colDef.headerName ?? '';
+
+      const colId =
+        column.getColId();
+
+      const conditions =
+        nextFilterConditionMap[
+          headerName
+        ];
+
+      /**
+       * 이번에 필터가 제거된 컬럼
+       */
+      if (!conditions?.length) {
+        modelsToApply.push({
+          colId,
+          model: null,
+        });
+
+        return;
+      }
+
+      /**
+       * CommonGrid에 넘겨둔
+       * filterParams.filterType 사용
+       */
+      const filterType:
+        | 'text'
+        | 'number' =
+        colDef.filterParams?.filterType ===
+        'number'
+          ? 'number'
+          : 'text';
+
+      /**
+       * 4. 긍정 / 부정 분리
+       */
+      const positiveConditions =
+        conditions.filter(
+          (condition) =>
+            !condition.operator.startsWith(
+              'not'
+            )
+        );
+
+      const negativeConditions =
+        conditions.filter(
+          (condition) =>
+            condition.operator.startsWith(
+              'not'
+            )
+        );
+
+      /**
+       * 5. ParsedCondition
+       *    → AG Grid Simple Filter Condition
+       */
+      const positiveAgConditions =
+        positiveConditions
+          .map((condition) =>
+            toAgGridCondition(
+              condition,
+              filterType
+            )
+          )
+          .filter(Boolean);
+
+      const negativeAgConditions =
+        negativeConditions
+          .map((condition) =>
+            toAgGridCondition(
+              condition,
+              filterType
+            )
+          )
+          .filter(Boolean);
+
+      /**
+       * 6. Include
+       *
+       * 0개 → null
+       * 1개 → 단일 모델
+       * 2개 이상 → OR
+       */
+      const includeModel =
+        positiveAgConditions.length ===
+        0
+          ? null
+          : positiveAgConditions.length ===
+              1
+            ? positiveAgConditions[0]
+            : {
+                filterType,
+                operator: 'OR',
+                conditions:
+                  positiveAgConditions,
+              };
+
+      /**
+       * 7. Exclude
+       *
+       * 0개 → null
+       * 1개 → 단일 모델
+       * 2개 이상 → AND
+       */
+      const excludeModel =
+        negativeAgConditions.length ===
+        0
+          ? null
+          : negativeAgConditions.length ===
+              1
+            ? negativeAgConditions[0]
+            : {
+                filterType,
+                operator: 'AND',
+                conditions:
+                  negativeAgConditions,
+              };
+
+      /**
+       * 8. Multi Filter Model
+       *
+       * CommonGrid의 child filter 순서:
+       *
+       * 0 = Include
+       * 1 = Exclude
+       */
+      const multiFilterModel = {
+        filterType: 'multi',
+
+        filterModels: [
+          includeModel,
+          excludeModel,
+        ],
+      };
+
+      modelsToApply.push({
+        colId,
+        model: multiFilterModel,
+      });
+    }
+  );
+
+  /**
+   * 9. columnDefs 세팅 완료 후
+   *    실제 Filter Model 적용
+   */
+  await Promise.all(
+    modelsToApply.map(
+      ({ colId, model }) =>
+        gridApi.setColumnFilterModel(
+          colId,
+          model
         )
-      )
-      .filter(Boolean);
+    )
+  );
 
-  const negativeAgConditions =
-    negativeConditions
-      .map((condition) =>
-        toAgGridCondition(
-          condition,
-          filterType
-        )
-      )
-      .filter(Boolean);
+  /**
+   * 10. 전부 넣은 다음 딱 한 번
+   */
+  gridApi.onFilterChanged();
 
-  const includeModel =
-    positiveAgConditions.length === 0
-      ? null
-      : positiveAgConditions.length === 1
-        ? positiveAgConditions[0]
-        : {
-            filterType,
-            operator: 'OR',
-            conditions: positiveAgConditions,
-          };
+  /**
+   * 네가 상태로도 관리하고 있다면
+   */
+  setFilterConditionMap(
+    nextFilterConditionMap
+  );
 
-  const excludeModel =
-    negativeAgConditions.length === 0
-      ? null
-      : negativeAgConditions.length === 1
-        ? negativeAgConditions[0]
-        : {
-            filterType,
-            operator: 'AND',
-            conditions: negativeAgConditions,
-          };
-
-  filterModelsToApply.push({
-    colId,
-    model: {
-      filterType: 'multi',
-      filterModels: [
-        includeModel,
-        excludeModel,
-      ],
-    },
-  });
-});
+  setIsFilterModalOpen(false);
+};
