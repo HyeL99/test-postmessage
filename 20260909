@@ -1,0 +1,93 @@
+const filterModelsToApply: {
+  colId: string;
+  model: any;
+}[] = [];
+
+(gridApi.getColumns() ?? []).forEach((column) => {
+  const headerName =
+    column.getColDef().headerName ?? '';
+
+  const conditions =
+    nextFilterConditionMap[headerName];
+
+  const colId = column.getColId();
+
+  if (!conditions?.length) {
+    filterModelsToApply.push({
+      colId,
+      model: null,
+    });
+
+    return;
+  }
+
+  const filterType =
+    column.getColDef().filterParams?.filterType === 'number'
+      ? 'number'
+      : 'text';
+
+  const positiveConditions =
+    conditions.filter(
+      (condition) =>
+        !condition.operator.startsWith('not')
+    );
+
+  const negativeConditions =
+    conditions.filter(
+      (condition) =>
+        condition.operator.startsWith('not')
+    );
+
+  const positiveAgConditions =
+    positiveConditions
+      .map((condition) =>
+        toAgGridCondition(
+          condition,
+          filterType
+        )
+      )
+      .filter(Boolean);
+
+  const negativeAgConditions =
+    negativeConditions
+      .map((condition) =>
+        toAgGridCondition(
+          condition,
+          filterType
+        )
+      )
+      .filter(Boolean);
+
+  const includeModel =
+    positiveAgConditions.length === 0
+      ? null
+      : positiveAgConditions.length === 1
+        ? positiveAgConditions[0]
+        : {
+            filterType,
+            operator: 'OR',
+            conditions: positiveAgConditions,
+          };
+
+  const excludeModel =
+    negativeAgConditions.length === 0
+      ? null
+      : negativeAgConditions.length === 1
+        ? negativeAgConditions[0]
+        : {
+            filterType,
+            operator: 'AND',
+            conditions: negativeAgConditions,
+          };
+
+  filterModelsToApply.push({
+    colId,
+    model: {
+      filterType: 'multi',
+      filterModels: [
+        includeModel,
+        excludeModel,
+      ],
+    },
+  });
+});
