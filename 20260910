@@ -1,0 +1,64 @@
+const conditionToModel = (
+  condition: ParsedFilterCondition,
+  filterType: 'text' | 'number'
+) => {
+  const { operator, value, valueTo } = condition;
+
+  switch (operator) {
+    case 'equals':
+    case 'notEqual':
+      return {
+        filterType,
+        type: operator,
+        filter:
+          filterType === 'number'
+            ? Number(value)
+            : value,
+      };
+
+    case 'contains':
+    case 'notContains':
+    case 'startsWith':
+    case 'notStartsWith':
+    case 'endsWith':
+    case 'notEndsWith':
+      return {
+        filterType: 'text',
+        type: operator,
+        filter: value,
+      };
+
+    case 'lessThan':
+    case 'notLessThan':
+    case 'lessThanOrEqual':
+    case 'notLessThanOrEqual':
+    case 'greaterThan':
+    case 'notGreaterThan':
+    case 'greaterThanOrEqual':
+    case 'notGreaterThanOrEqual':
+      return {
+        filterType: 'number',
+        type: operator,
+        filter: Number(value),
+      };
+
+    case 'inRange':
+    case 'notInRange':
+      return {
+        filterType: 'number',
+        type: operator,
+        filter: Number(value),
+        filterTo: Number(valueTo),
+      };
+
+    case 'blank':
+    case 'notBlank':
+      return {
+        filterType,
+        type: operator,
+      };
+
+    default:
+      return null;
+  }
+};
